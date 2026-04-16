@@ -23,7 +23,7 @@ export const signup = async (req, res) => {
       $or: [{ email }, { username: username.toLowerCase() }],
     })
     if (existingUser) {
-      return res.status(400).json({
+      return res.status(409).json({
         message: existingUser.email === email ? 'Email already in use' : 'Username already taken',
       })
     }
@@ -43,6 +43,12 @@ export const signup = async (req, res) => {
       user: { id: user._id, name: user.name, username: user.username, email: user.email },
     })
   } catch (error) {
+    // Handle MongoDB duplicate key error (shouldn't occur with validation above, but defensive)
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern)[0]
+      const message = field === 'email' ? 'Email already in use' : 'Username already taken'
+      return res.status(409).json({ message })
+    }
     res.status(500).json({ message: 'Server error', error: error.message })
   }
 }
@@ -54,13 +60,13 @@ export const login = async (req, res) => {
     // Find user
     const user = await User.findOne({ email })
     if (!user) {
-      return res.status(401).json({ message: 'Invalid credentials' })
+      return res.status(401).json({ message: 'User not found' })
     }
 
     // Check password
     const isMatch = await user.matchPassword(password)
     if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid credentials' })
+      return res.status(401).json({ message: 'Wrong password' })
     }
 
     // Generate JWT token

@@ -120,17 +120,17 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-8">
+    <div className="min-h-screen bg-gray-900 text-white px-4 py-6 md:p-8">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
           <div>
-            <h1 className="text-4xl font-bold">Welcome, {user.name}</h1>
-            <p className="text-gray-400 mt-1">@{user.username} • Track your daily habits with friends</p>
+            <h1 className="text-3xl md:text-4xl font-bold">Welcome, {user.name}</h1>
+            <p className="text-gray-400 mt-1 text-sm md:text-base">@{user.username} • Track your daily habits with friends</p>
           </div>
           <button
             onClick={handleLogout}
-            className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded transition"
+            className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded transition whitespace-nowrap"
           >
             Logout
           </button>
@@ -159,25 +159,25 @@ export default function Dashboard() {
         )}
 
         {/* Main Completion Display */}
-        <div className="bg-linear-to-r from-green-600 to-green-700 p-8 rounded-lg mb-8 text-center">
-          <p className="text-lg text-white opacity-90 mb-2">Today's Completion</p>
-          <p className="text-7xl font-bold text-white">{completionPercentage}%</p>
+        <div className="bg-linear-to-r from-green-600 to-green-700 px-4 py-6 md:p-8 rounded-lg mb-8 text-center">
+          <p className="text-base md:text-lg text-white opacity-90 mb-2">Today's Completion</p>
+          <p className="text-6xl md:text-7xl font-bold text-white">{completionPercentage}%</p>
           <div className="w-full bg-green-900 h-2 rounded-full mt-4 overflow-hidden">
             <div
               className="bg-white h-full transition-all duration-300"
               style={{ width: `${completionPercentage}%` }}
             ></div>
           </div>
-          <div className="flex gap-3 justify-center mt-4">
+          <div className="flex flex-col sm:flex-row gap-3 justify-center mt-4">
             <button
               onClick={() => setShowShareModal(true)}
-              className="bg-white text-green-700 hover:bg-gray-100 font-bold py-2 px-6 rounded transition"
+              className="bg-white text-green-700 hover:bg-gray-100 font-bold py-2 px-6 rounded transition w-full sm:w-auto"
             >
               🎉 Share Achievement
             </button>
             <button
               onClick={() => setShowSendTaskModal(true)}
-              className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded transition"
+              className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded transition w-full sm:w-auto"
             >
               📤 Send Task to Friend
             </button>
@@ -207,20 +207,20 @@ export default function Dashboard() {
         </div>
 
         {/* Add Task */}
-        <div className="bg-gray-800 p-6 rounded-lg mb-8">
-          <h2 className="text-2xl font-bold mb-4">Add New Task</h2>
-          <div className="flex gap-2">
+        <div className="bg-gray-800 px-4 py-6 md:p-6 rounded-lg mb-8">
+          <h2 className="text-xl md:text-2xl font-bold mb-4">Add New Task</h2>
+          <div className="flex flex-col sm:flex-row gap-2">
             <input
               type="text"
               value={taskInput}
               onChange={(e) => setTaskInput(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && addTask()}
               placeholder="Enter a new habit or task..."
-              className="flex-1 px-4 py-2 bg-gray-700 text-white rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="flex-1 px-4 py-2 bg-gray-700 text-white rounded focus:outline-none focus:ring-2 focus:ring-green-500 text-sm md:text-base"
             />
             <button
               onClick={addTask}
-              className="bg-green-600 hover:bg-green-700 px-6 py-2 rounded transition font-bold"
+              className="bg-green-600 hover:bg-green-700 px-6 py-2 rounded transition font-bold w-full sm:w-auto"
             >
               Add
             </button>
@@ -228,26 +228,26 @@ export default function Dashboard() {
         </div>
 
         {/* Today's Tasks (Daily Checklist) */}
-        <div className="bg-gray-800 p-6 rounded-lg mb-8">
-          <h2 className="text-2xl font-bold mb-4">Today's Tasks</h2>
+        <div className="bg-gray-800 px-4 py-6 md:p-6 rounded-lg mb-8">
+          <h2 className="text-xl md:text-2xl font-bold mb-4">Today's Tasks</h2>
           {dailyTasks.length === 0 ? (
             <p className="text-gray-400 text-center py-8">No tasks yet. Add one to get started!</p>
           ) : (
             <ul className="space-y-3">
               {dailyTasks.map(task => (
-                <li key={task.taskId} className="flex items-center gap-3 bg-gray-700 p-3 rounded hover:bg-gray-600 transition">
+                <li key={task.taskId} className="flex items-center gap-3 bg-gray-700 px-3 py-3 rounded hover:bg-gray-600 transition flex-wrap md:flex-nowrap">
                   <input
                     type="checkbox"
                     checked={task.completed}
                     onChange={() => toggleTask(task.taskId)}
-                    className="w-5 h-5 rounded cursor-pointer accent-green-500"
+                    className="w-5 h-5 rounded cursor-pointer accent-green-500 shrink-0"
                   />
-                  <span className={`flex-1 ${task.completed ? 'line-through text-gray-400' : 'text-white'}`}>
+                  <span className={`flex-1 min-w-0 text-sm md:text-base ${task.completed ? 'line-through text-gray-400' : 'text-white'}`}>
                     {task.title}
                   </span>
                   <button
                     onClick={() => deleteTaskFn(task.taskId)}
-                    className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm transition"
+                    className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm transition w-full md:w-auto"
                   >
                     Delete
                   </button>
@@ -258,13 +258,13 @@ export default function Dashboard() {
         </div>
 
         {/* Notes Section */}
-        <div className="bg-gray-800 p-6 rounded-lg mb-8">
-          <h2 className="text-2xl font-bold mb-4">Daily Notes</h2>
+        <div className="bg-gray-800 px-4 py-6 md:p-6 rounded-lg mb-8">
+          <h2 className="text-xl md:text-2xl font-bold mb-4">Daily Notes</h2>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Add any notes about today..."
-            className="w-full px-4 py-3 bg-gray-700 text-white rounded focus:outline-none focus:ring-2 focus:ring-green-500 h-24"
+            className="w-full px-4 py-3 bg-gray-700 text-white rounded focus:outline-none focus:ring-2 focus:ring-green-500 h-24 text-sm md:text-base"
           />
         </div>
 
@@ -272,7 +272,7 @@ export default function Dashboard() {
         <button
           onClick={saveDaily}
           disabled={saving}
-          className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white font-bold py-3 px-6 rounded transition text-lg"
+          className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white font-bold py-3 px-6 rounded transition text-base md:text-lg"
         >
           {saving ? 'Saving...' : `Save Daily Log (${completionPercentage}% completed)`}
         </button>

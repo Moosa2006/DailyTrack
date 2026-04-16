@@ -27,23 +27,28 @@ export default function IncomingTasksSection({ refreshTrigger, onTaskAccepted })
   const handleRespond = async (taskId, action) => {
     try {
       setRespondingTo(taskId)
+      setError('')
+      
       const response = await respondToSharedTask(taskId, action)
 
-      if (response.message) {
-        // Remove task from list
+      if (response && response.sharedTask) {
+        // Task responded to successfully - remove from incoming list
         setTasks(tasks.filter(t => t._id !== taskId))
 
         // Trigger callback to refresh main task list if accepted
         if (action === 'accepted' && onTaskAccepted) {
           onTaskAccepted()
         }
-
-        setError('')
+      } else if (response && response.message && response.message.includes('Already responded')) {
+        // Task already responded to
+        setError('You have already responded to this task')
+        // Reload to refresh UI
+        loadIncomingTasks()
       } else {
-        setError(response.message || 'Failed to respond')
+        setError(response?.message || `Failed to ${action} task`)
       }
     } catch (err) {
-      setError('Failed to respond to task')
+      setError(`Failed to ${action} task. Please try again.`)
       console.error(err)
     } finally {
       setRespondingTo(null)
