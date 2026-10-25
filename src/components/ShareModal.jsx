@@ -1,58 +1,55 @@
-export default function ShareModal({ completion, onClose }) {
-  const shareText = `Today I completed ${completion}% of my daily tasks on DailyTrack! 💪`
+import { useState } from 'react'
+import Modal from './Modal'
+import { useToast } from './Toast'
 
-  const handleCopyToClipboard = () => {
-    navigator.clipboard.writeText(shareText)
-    alert('Copied to clipboard!')
+export default function ShareModal({ completion, onClose }) {
+  const [copied, setCopied] = useState(false)
+  const toast = useToast()
+  const shareText = `I finished ${completion}% of my DailyTrack habits today.`
+
+  const handleCopyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(shareText)
+      setCopied(true)
+      toast('Copied to clipboard', 'success')
+    } catch {
+      toast('Could not copy. Select the text instead.', 'error')
+    }
   }
 
   const handleShare = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: 'DailyTrack',
-          text: shareText,
-        })
-      } catch (error) {
-        console.error('Share failed:', error)
-      }
+    if (!navigator.share) return
+    try {
+      await navigator.share({
+        title: 'DailyTrack',
+        text: shareText,
+      })
+    } catch {
+      // user cancelled
     }
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-800 p-6 rounded-lg max-w-md w-full">
-        <h2 className="text-2xl font-bold text-white mb-4">Share Your Achievement</h2>
-        
-        <div className="bg-gray-700 p-4 rounded mb-4">
-          <p className="text-white">{shareText}</p>
-        </div>
-
-        <div className="space-y-3">
+    <Modal title="Share this day" onClose={onClose}>
+      <p className="border border-line bg-paper px-3 py-3 text-ink">{shareText}</p>
+      <div className="mt-4 space-y-2">
+        <button
+          type="button"
+          onClick={handleCopyToClipboard}
+          className="w-full bg-ink px-4 py-2 text-sm font-semibold text-paper"
+        >
+          {copied ? 'Copied' : 'Copy text'}
+        </button>
+        {typeof navigator !== 'undefined' && navigator.share && (
           <button
-            onClick={handleCopyToClipboard}
-            className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded transition"
+            type="button"
+            onClick={handleShare}
+            className="w-full border border-line px-4 py-2 text-sm"
           >
-            📋 Copy to Clipboard
+            Share via device
           </button>
-
-          {navigator.share && (
-            <button
-              onClick={handleShare}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition"
-            >
-              🔗 Share
-            </button>
-          )}
-
-          <button
-            onClick={onClose}
-            className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded transition"
-          >
-            Close
-          </button>
-        </div>
+        )}
       </div>
-    </div>
+    </Modal>
   )
 }

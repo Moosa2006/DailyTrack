@@ -1,13 +1,16 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { getSentTasks } from '../services/api'
+import { useToast } from './Toast'
 
 export default function SentTasksSection({ refreshTrigger }) {
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(false)
-  const [filter, setFilter] = useState('all') // all, pending, accepted, rejected
+  const [filter, setFilter] = useState('all')
+  const toast = useToast()
 
   useEffect(() => {
     loadSentTasks()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshTrigger])
 
   const loadSentTasks = async () => {
@@ -15,108 +18,86 @@ export default function SentTasksSection({ refreshTrigger }) {
       setLoading(true)
       const response = await getSentTasks()
       setTasks(response.tasks || [])
-    } catch (err) {
-      console.error('Failed to load sent tasks:', err)
+    } catch {
+      toast('Failed to load sent tasks', 'error')
     } finally {
       setLoading(false)
     }
   }
 
-  const filteredTasks = tasks.filter(task => {
-    if (filter === 'all') return true
-    return task.status === filter
-  })
-
-  const getStatusColor = status => {
-    switch (status) {
-      case 'pending':
-        return 'bg-yellow-600'
-      case 'accepted':
-        return 'bg-green-600'
-      case 'rejected':
-        return 'bg-red-600'
-      default:
-        return 'bg-gray-600'
-    }
-  }
-
-  const getStatusEmoji = status => {
-    switch (status) {
-      case 'pending':
-        return '⏳'
-      case 'accepted':
-        return '✅'
-      case 'rejected':
-        return '❌'
-      default:
-        return '❓'
-    }
-  }
-
-  if (loading) {
-    return <div className="text-gray-400">Loading sent tasks...</div>
-  }
+  const filteredTasks = tasks.filter((task) => (filter === 'all' ? true : task.status === filter))
 
   return (
-    <div className="bg-gray-800 p-6 rounded-lg mb-8">
-      <h2 className="text-2xl font-bold mb-4 text-white">
-        📤 Tasks You've Sent
+    <div className="border border-line bg-raised p-5 shadow-xs">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold tracking-wide text-ink uppercase">
+            Sent to friends {tasks.length > 0 ? `(${tasks.length})` : ''}
+          </h3>
+          <p className="text-xs text-muted">Habits you&apos;ve challenged friends to do</p>
+        </div>
         {tasks.length > 0 && (
-          <span className="ml-2 bg-blue-600 text-white text-sm px-2 py-1 rounded">
-            {tasks.length}
-          </span>
+          <div className="flex flex-wrap gap-1 border border-line bg-paper p-0.5">
+            {['all', 'pending', 'accepted', 'rejected'].map((value) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setFilter(value)}
+                className={`px-2.5 py-1 text-xs font-medium capitalize transition-colors ${
+                  filter === value
+                    ? 'bg-ink text-paper shadow-xs'
+                    : 'text-muted hover:text-ink'
+                }`}
+              >
+                {value}
+              </button>
+            ))}
+          </div>
         )}
-      </h2>
+      </div>
 
-      {tasks.length > 0 && (
-        <div className="flex gap-2 mb-4">
-          {['all', 'pending', 'accepted', 'rejected'].map(f => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-3 py-1 rounded text-sm font-semibold transition ${
-                filter === f
-                  ? 'bg-green-600 text-white'
-                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-              }`}
-            >
-              {f.charAt(0).toUpperCase() + f.slice(1)}
-            </button>
-          ))}
+      {loading ? (
+        <p className="text-sm text-muted">Loading sent tasks…</p>
+      ) : filteredTasks.length === 0 ? (
+        <div className="border border-dashed border-line p-6 text-center">
+          <p className="text-sm font-medium text-ink">
+            {filter === 'all'
+              ? 'You have not sent any tasks to friends yet.'
+              : `No ${filter} tasks found.`}
+          </p>
+          <p className="mt-1 text-xs text-muted">
+            Send a habit challenge to your accountability partners to track together.
+          </p>
         </div>
-      )}
-
-      {filteredTasks.length === 0 ? (
-        <p className="text-gray-400 text-center py-8">
-          {filter === 'all' ? 'No tasks sent yet.' : `No ${filter} tasks.`}
-        </p>
       ) : (
-        <div className="space-y-3">
-          {filteredTasks.map(task => (
-            <div
-              key={task._id}
-              className="bg-gray-700 p-4 rounded-lg flex items-center gap-4 hover:bg-gray-600 transition"
-            >
-              <div className="flex-1 min-w-0">
-                <p className="text-white font-semibold wrap-break-word">{task.title}</p>
-                <p className="text-gray-400 text-sm mt-1">
-                  To: {task.receiverId?.name || 'Unknown user'}{' '}
-                  <span className="text-gray-500">({task.receiverId?.email})</span>
-                </p>
+        <ul className="divide-y divide-line">
+          {filteredTasks.map((task) => (
+            <li key={task._id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-paper-2 text-xs font-bold text-ink">
+                  {task.receiverId?.name ? task.receiverId.name.charAt(0).toUpperCase() : '?'}
+                </div>
+                <div className="min-w-0">
+                  <p className="font-medium text-ink wrap-break-word">{task.title}</p>
+                  <p className="text-xs text-muted">
+                    Sent to <span className="font-medium text-ink">{task.receiverId?.name || 'Friend'}</span> (@{task.receiverId?.username})
+                  </p>
+                </div>
               </div>
-
-              <div className="flex items-center gap-3 shrink-0">
-                <span
-                  className={`${getStatusColor(
-                    task.status
-                  )} text-white text-sm font-bold px-3 py-1 rounded`}
-                >
-                  {getStatusEmoji(task.status)} {task.status}
-                </span>
-              </div>
-            </div>
+              <span
+                className={`text-xs px-2.5 py-1 rounded-xs font-medium capitalize shrink-0 ${
+                  task.status === 'accepted'
+                    ? 'border border-good/30 bg-good/10 text-good'
+                    : task.status === 'rejected'
+                      ? 'border border-bad/30 bg-bad/10 text-bad'
+                      : 'border border-line bg-paper-2 text-muted'
+                }`}
+              >
+                {task.status}
+              </span>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </div>
   )

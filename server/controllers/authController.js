@@ -1,55 +1,88 @@
 import User from '../models/User.js'
 import jwt from 'jsonwebtoken'
 
+const signToken = (user) => {
+  if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET is not configured')
+  }
+
+  return jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET, {
+    expiresIn: '7d',
+  })
+}
+
+const publicUser = (user) => ({
+  id: user._id,
+  name: user.name,
+  username: user.username,
+  email: user.email,
+})
+
 export const signup = async (req, res) => {
   try {
     const { name, username, email, password } = req.body
 
-    // Validate inputs
     if (!name || !username || !email || !password) {
       return res.status(400).json({ message: 'All fields are required' })
     }
 
-    // Validate username format
-    const usernameRegex = /^[a-z0-9_-]{3,20}$/
-    if (!usernameRegex.test(username.toLowerCase())) {
+    const trimmedName = String(name).trim()
+    const normalizedUsername = String(username).trim().toLowerCase()
+    const normalizedEmail = String(email).trim().toLowerCase()
+
+    if (trimmedName.length < 1 || trimmedName.length > 60) {
+      return res.status(400).json({ message: 'Name must be 1-60 characters' })
+    }
+
+    if (!/^[a-z0-9_-]{3,20}$/.test(normalizedUsername)) {
       return res.status(400).json({
-        message: 'Username must be 3-20 characters, alphanumeric with underscores/dashes only',
+        message: 'Username must be 3-20 characters, letters, numbers, underscores, or dashes',
       })
     }
 
-    // Check if user exists by email or username
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      return res.status(400).json({ message: 'Enter a valid email address' })
+    }
+
+    if (String(password).length < 6 || String(password).length > 128) {
+      return res.status(400).json({ message: 'Password must be 6-128 characters' })
+    }
+
     const existingUser = await User.findOne({
-      $or: [{ email }, { username: username.toLowerCase() }],
+      $or: [{ email: normalizedEmail }, { username: normalizedUsername }],
     })
     if (existingUser) {
       return res.status(409).json({
-        message: existingUser.email === email ? 'Email already in use' : 'Username already taken',
+        message:
+          existingUser.email === normalizedEmail ? 'Email already in use' : 'Username already taken',
       })
     }
 
-    // Create new user
-    const user = new User({ name, username: username.toLowerCase(), email, password })
+    const user = new User({
+      name: trimmedName,
+      username: normalizedUsername,
+      email: normalizedEmail,
+      password,
+    })
     await user.save()
 
-    // Generate JWT token
-    const token = jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET, {
-      expiresIn: '7d',
-    })
+    const token = signToken(user)
 
     res.status(201).json({
       message: 'User created successfully',
       token,
-      user: { id: user._id, name: user.name, username: user.username, email: user.email },
+      user: publicUser(user),
     })
   } catch (error) {
-    // Handle MongoDB duplicate key error (shouldn't occur with validation above, but defensive)
     if (error.code === 11000) {
-      const field = Object.keys(error.keyPattern)[0]
+      const field = Object.keys(error.keyPattern || { username: 1 })[0]
       const message = field === 'email' ? 'Email already in use' : 'Username already taken'
       return res.status(409).json({ message })
     }
-    res.status(500).json({ message: 'Server error', error: error.message })
+    if (error.message === 'JWT_SECRET is not configured') {
+      return res.status(500).json({ message: 'Server configuration error' })
+    }
+    res.status(500).json({ message: 'Server error' })
   }
 }
 
@@ -57,29 +90,31 @@ export const login = async (req, res) => {
   try {
     const { email, password } = req.body
 
-    // Find user
-    const user = await User.findOne({ email })
-    if (!user) {
-      return res.status(401).json({ message: 'User not found' })
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password are required' })
     }
 
-    // Check password
+    const user = await User.findOne({ email: String(email).trim().toLowerCase() })
+    if (!user) {
+      return res.status(401).json({ message: 'Invalid email or password' })
+    }
+
     const isMatch = await user.matchPassword(password)
     if (!isMatch) {
-      return res.status(401).json({ message: 'Wrong password' })
+      return res.status(401).json({ message: 'Invalid email or password' })
     }
 
-    // Generate JWT token
-    const token = jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET, {
-      expiresIn: '7d',
-    })
+    const token = signToken(user)
 
     res.json({
       message: 'Login successful',
       token,
-      user: { id: user._id, name: user.name, username: user.username, email: user.email },
+      user: publicUser(user),
     })
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message })
+    if (error.message === 'JWT_SECRET is not configured') {
+      return res.status(500).json({ message: 'Server configuration error' })
+    }
+    res.status(500).json({ message: 'Server error' })
   }
 }

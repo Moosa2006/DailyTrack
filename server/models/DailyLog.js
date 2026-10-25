@@ -17,6 +17,10 @@ const dailyLogSchema = new mongoose.Schema(
           type: mongoose.Schema.Types.ObjectId,
           ref: 'Task',
         },
+        title: {
+          type: String,
+          default: '',
+        },
         completed: {
           type: Boolean,
           default: false,
@@ -34,5 +38,7 @@ const dailyLogSchema = new mongoose.Schema(
   },
   { timestamps: true }
 )
+
+dailyLogSchema.index({ userId: 1, date: 1 }, { unique: true })
 
 export default mongoose.model('DailyLog', dailyLogSchema)

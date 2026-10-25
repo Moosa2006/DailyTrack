@@ -1,26 +1,30 @@
-import { useState, useEffect } from 'react'
-import { getFriendsList, sendSharedTask } from '../services/api'
+import { useEffect, useState } from 'react'
+import { getFriendsList, sendSharedTask, createTask } from '../services/api'
+import Modal from './Modal'
+import { useToast } from './Toast'
 
-export default function SendTaskModal({ onTaskSent, onClose }) {
+export default function SendTaskModal({ onTaskSent, onClose, preselectedFriendId = null }) {
   const [friends, setFriends] = useState([])
-  const [selectedFriends, setSelectedFriends] = useState([])
+  const [selectedFriends, setSelectedFriends] = useState(
+    preselectedFriendId ? [preselectedFriendId] : []
+  )
   const [title, setTitle] = useState('')
+  const [addToSelf, setAddToSelf] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState(false)
+  const toast = useToast()
 
   useEffect(() => {
+    const loadFriends = async () => {
+      try {
+        const data = await getFriendsList()
+        setFriends(data.friends || [])
+      } catch {
+        setError('Failed to load friends')
+      }
+    }
     loadFriends()
   }, [])
-
-  const loadFriends = async () => {
-    try {
-      const data = await getFriendsList()
-      setFriends(data.friends || [])
-    } catch (err) {
-      setError('Failed to load friends')
-    }
-  }
 
   const toggleFriend = (friendId) => {
     setSelectedFriends((prev) =>
@@ -28,39 +32,36 @@ export default function SendTaskModal({ onTaskSent, onClose }) {
     )
   }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
+  const handleSubmit = async (event) => {
+    event.preventDefault()
     setError('')
-    setSuccess(false)
+
+    if (selectedFriends.length === 0) {
+      setError('Select at least one friend')
+      return
+    }
+
+    const trimmedTitle = title.trim()
+    if (!trimmedTitle) {
+      setError('Enter a task title')
+      return
+    }
+
     setLoading(true)
+    const count = selectedFriends.length
 
     try {
-      if (selectedFriends.length === 0) {
-        setError('Select at least one friend')
-        setLoading(false)
-        return
+      const response = await sendSharedTask(selectedFriends, trimmedTitle)
+      if (addToSelf) {
+        try {
+          await createTask(trimmedTitle, 'Shared')
+        } catch {
+          // non-blocking
+        }
       }
-
-      if (!title.trim()) {
-        setError('Enter a task title')
-        setLoading(false)
-        return
-      }
-
-      await sendSharedTask(selectedFriends, title)
-
-      setSuccess(true)
-      setTitle('')
-      setSelectedFriends([])
-
-      // Call callback to refresh
-      if (onTaskSent) onTaskSent()
-
-      // Auto-close after 2 seconds
-      setTimeout(() => {
-        onClose()
-        setSuccess(false)
-      }, 2000)
+      toast(response.message || `Sent to ${count} friend${count === 1 ? '' : 's'}`, 'success')
+      onTaskSent?.()
+      onClose()
     } catch (err) {
       setError(err.message || 'Failed to send task')
     } finally {
@@ -69,92 +70,115 @@ export default function SendTaskModal({ onTaskSent, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-800 p-6 rounded-lg max-w-md w-full">
-        <h2 className="text-2xl font-bold text-white mb-4">📤 Send Task to Friends</h2>
+    <Modal title="Send a task" onClose={onClose}>
+      {error && (
+        <div className="mb-4 border border-bad/30 px-3 py-2 text-sm text-bad" role="alert">
+          {error}
+        </div>
+      )}
 
-        {error && (
-          <div className="bg-red-500 text-white p-3 rounded mb-4">{error}</div>
-        )}
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label htmlFor="task-title" className="mb-1 block text-sm font-medium">
+            Task
+          </label>
+          <input
+            id="task-title"
+            type="text"
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            placeholder="e.g. Study for 2 hours"
+            maxLength={200}
+            className="w-full border border-line bg-paper px-3 py-2"
+            disabled={loading}
+          />
+        </div>
 
-        {success && (
-          <div className="bg-green-500 text-white p-3 rounded mb-4">
-            ✅ Task sent to {selectedFriends.length} friend(s)!
+        <fieldset>
+          <div className="mb-2 flex items-center justify-between">
+            <legend className="text-sm font-medium text-ink">
+              Choose friends {selectedFriends.length > 0 && `(${selectedFriends.length})`}
+            </legend>
+            {friends.length > 1 && (
+              <button
+                type="button"
+                onClick={() =>
+                  setSelectedFriends(
+                    selectedFriends.length === friends.length
+                      ? []
+                      : friends.map((f) => f._id)
+                  )
+                }
+                className="text-xs text-accent hover:underline"
+              >
+                {selectedFriends.length === friends.length ? 'Deselect all' : 'Select all'}
+              </button>
+            )}
           </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Task Title */}
-          <div>
-            <label className="block text-gray-300 mb-2 font-semibold">Task Title</label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g., Study 2 hours"
-              className="w-full px-4 py-2 bg-gray-700 text-white rounded focus:outline-none focus:ring-2 focus:ring-green-500"
-              disabled={loading || success}
-            />
-          </div>
-
-          {/* Friend Selection */}
-          <div>
-            <label className="block text-gray-300 mb-2 font-semibold">Select Friends</label>
-
-            {friends.length > 0 ? (
-              <div className="space-y-2 max-h-48 overflow-y-auto bg-gray-700 p-3 rounded border border-gray-600">
-                {friends.map((friend) => (
+          {friends.length > 0 ? (
+            <div className="max-h-48 space-y-1 overflow-y-auto border border-line bg-paper/50 p-2">
+              {friends.map((friend) => {
+                const isChecked = selectedFriends.includes(friend._id)
+                return (
                   <label
                     key={friend._id}
-                    className="flex items-center gap-3 cursor-pointer hover:bg-gray-600 p-2 rounded transition"
+                    className={`flex cursor-pointer items-center gap-3 rounded-sm px-2.5 py-1.5 transition-colors ${
+                      isChecked ? 'bg-paper font-medium' : 'hover:bg-paper'
+                    }`}
                   >
                     <input
                       type="checkbox"
-                      checked={selectedFriends.includes(friend._id)}
+                      checked={isChecked}
                       onChange={() => toggleFriend(friend._id)}
-                      disabled={loading || success}
-                      className="w-4 h-4"
+                      disabled={loading}
+                      className="h-4 w-4 accent-good"
                     />
-                    <div className="flex-1">
-                      <p className="text-white font-semibold">{friend.name}</p>
-                      <p className="text-gray-400 text-sm">@{friend.username}</p>
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-paper-2 text-xs font-semibold text-ink">
+                      {friend.name ? friend.name.charAt(0).toUpperCase() : '?'}
                     </div>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm text-ink">{friend.name}</span>
+                      <span className="block truncate text-xs text-muted">@{friend.username}</span>
+                    </span>
                   </label>
-                ))}
-              </div>
-            ) : (
-              <p className="text-gray-400 bg-gray-700 p-3 rounded text-sm">
-                No friends yet. Add friends in the Friends tab first!
-              </p>
-            )}
+                )
+              })}
+            </div>
+          ) : (
+            <p className="border border-dashed border-line p-4 text-center text-sm text-muted">
+              You haven&apos;t added any friends yet. Add friends from the Friends tab first!
+            </p>
+          )}
+        </fieldset>
 
-            {selectedFriends.length > 0 && (
-              <p className="text-green-400 text-sm mt-2">
-                ✅ {selectedFriends.length} friend{selectedFriends.length !== 1 ? 's' : ''} selected
-              </p>
-            )}
-          </div>
+        <label className="flex cursor-pointer items-center gap-2.5 pt-1 text-sm text-ink">
+          <input
+            type="checkbox"
+            checked={addToSelf}
+            onChange={(e) => setAddToSelf(e.target.checked)}
+            className="h-4 w-4 accent-good"
+          />
+          <span>Also add this habit to my own checklist</span>
+        </label>
 
-          {/* Actions */}
-          <div className="flex gap-2 pt-4">
-            <button
-              type="submit"
-              disabled={loading || success || friends.length === 0}
-              className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white font-bold py-2 px-4 rounded transition"
-            >
-              {loading ? 'Sending...' : 'Send Task'}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={loading}
-              className="flex-1 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-700 text-white font-bold py-2 px-4 rounded transition"
-            >
-              Close
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div className="flex gap-2 pt-2">
+          <button
+            type="submit"
+            disabled={loading || friends.length === 0}
+            className="flex-1 bg-accent px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-hover disabled:opacity-50"
+          >
+            {loading ? 'Sending…' : `Send to ${selectedFriends.length || 0} friend${selectedFriends.length === 1 ? '' : 's'}`}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="border border-line bg-raised px-4 py-2.5 text-sm text-muted transition-colors hover:border-ink hover:text-ink"
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+    </Modal>
   )
 }

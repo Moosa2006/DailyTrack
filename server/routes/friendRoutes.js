@@ -6,6 +6,7 @@ import {
   getPendingRequests,
   getSentRequests,
   removeFriend,
+  cancelFriendRequest,
 } from '../controllers/friendController.js'
 import { authMiddleware } from '../middleware/authMiddleware.js'
 
@@ -19,6 +20,9 @@ router.post('/request', sendFriendRequest)
 
 // Accept/Reject friend request
 router.post('/respond/:id', respondToFriendRequest)
+
+// Cancel sent friend request
+router.delete('/requests/:id', cancelFriendRequest)
 
 // Get friends list
 router.get('/list', getFriendsList)

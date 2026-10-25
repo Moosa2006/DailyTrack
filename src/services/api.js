@@ -1,4 +1,25 @@
-const API_URL = import.meta.env.VITE_API_URL || '/api'
+const rawApiUrl = (import.meta.env.VITE_API_URL || '').trim()
+
+export const resolveApiBaseUrl = (rawUrl) => {
+  if (!rawUrl) {
+    return '/api'
+  }
+  const stripped = rawUrl.replace(/\/+$/, '')
+  if (stripped.endsWith('/api')) {
+    return stripped
+  }
+  return `${stripped}/api`
+}
+
+export const API_BASE_URL = resolveApiBaseUrl(rawApiUrl)
+
+class ApiError extends Error {
+  constructor(message, status, body) {
+    super(message)
+    this.status = status
+    this.body = body
+  }
+}
 
 export const apiCall = async (endpoint, method = 'GET', data = null) => {
   const token = localStorage.getItem('token')
@@ -15,46 +36,50 @@ export const apiCall = async (endpoint, method = 'GET', data = null) => {
     headers,
   }
 
-  if (data) {
+  if (data !== null && method !== 'GET') {
     config.body = JSON.stringify(data)
   }
 
-  try {
-    const response = await fetch(`${API_URL}${endpoint}`, config)
-    if (response.status === 401) {
-      localStorage.removeItem('token')
-      window.location.href = '/login'
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
+  const response = await fetch(`${API_BASE_URL}${cleanEndpoint}`, config)
+  const body = await response.json().catch(() => ({}))
+
+  if (response.status === 401 && !endpoint.startsWith('/auth/')) {
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    if (!window.location.pathname.startsWith('/login')) {
+      window.location.assign('/login')
     }
-    return await response.json()
-  } catch (error) {
-    console.error('API Error:', error)
-    throw error
   }
+
+  if (!response.ok) {
+    throw new ApiError(body.message || 'Request failed', response.status, body)
+  }
+
+  return body
 }
 
-// Auth API
 export const signup = (name, username, email, password) =>
   apiCall('/auth/signup', 'POST', { name, username, email, password })
 
 export const login = (email, password) =>
   apiCall('/auth/login', 'POST', { email, password })
 
-// Tasks API
 export const getTasks = () => apiCall('/tasks', 'GET')
-export const createTask = (title) => apiCall('/tasks', 'POST', { title })
-export const updateTask = (id, title) => apiCall(`/tasks/${id}`, 'PUT', { title })
+export const createTask = (title, category = 'General') =>
+  apiCall('/tasks', 'POST', { title, category })
+export const updateTask = (id, title, category) =>
+  apiCall(`/tasks/${id}`, 'PUT', { title, category })
 export const deleteTask = (id) => apiCall(`/tasks/${id}`, 'DELETE')
 
-// Daily Log API
 export const saveLog = (date, tasks, notes) =>
   apiCall('/log', 'POST', { date, tasks, notes })
 
 export const getLog = (date) => apiCall(`/log/${date}`, 'GET')
 
-// Dashboard API
-export const getDashboard = () => apiCall('/dashboard', 'GET')
+export const getDashboard = (date) =>
+  apiCall(date ? `/dashboard?date=${encodeURIComponent(date)}` : '/dashboard', 'GET')
 
-// Shared Tasks API (Updated for multiple receivers)
 export const sendSharedTask = (receiverIds, title) =>
   apiCall('/shared/send', 'POST', { receiverIds, title })
 
@@ -69,7 +94,6 @@ export const respondToSharedTask = (id, action) =>
 
 export const getTaskProgress = () => apiCall('/shared/progress', 'GET')
 
-// Friends API
 export const sendFriendRequest = (username) =>
   apiCall('/friends/request', 'POST', { username })
 
@@ -85,9 +109,11 @@ export const respondToFriendRequest = (id, action) =>
 export const removeFriend = (friendId) =>
   apiCall(`/friends/${friendId}`, 'DELETE')
 
-// Users API (Search & Profile)
+export const cancelFriendRequest = (id) =>
+  apiCall(`/friends/requests/${id}`, 'DELETE')
+
 export const searchUsers = (username) =>
-  apiCall(`/users/search?username=${username}`, 'GET')
+  apiCall(`/users/search?username=${encodeURIComponent(username)}`, 'GET')
 
 export const getCurrentUserProfile = () =>
   apiCall('/users/profile/me', 'GET')

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { getTaskProgress } from '../services/api'
 
 export default function ProgressTracker() {
@@ -6,149 +6,109 @@ export default function ProgressTracker() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    loadProgress()
-    const interval = setInterval(loadProgressSilent, 5000) // Refresh every 5 seconds without flashing
-    return () => clearInterval(interval)
-  }, [])
-
-  const loadProgress = async () => {
-    setLoading(true)
+  const loadProgress = async (silent = false) => {
+    if (!silent) setLoading(true)
     try {
       const data = await getTaskProgress()
       setProgress(data.progress || [])
       setError('')
-    } catch (err) {
-      console.error('Failed to load progress')
-      setError('Failed to load progress')
+    } catch {
+      if (!silent) setError('Failed to load progress')
     } finally {
       setLoading(false)
     }
   }
 
-  const loadProgressSilent = async () => {
-    try {
-      const data = await getTaskProgress()
-      setProgress(data.progress || [])
-      setError('')
-    } catch (err) {
-      console.error('Failed to load progress')
-    }
-  }
+  useEffect(() => {
+    loadProgress()
+    const interval = setInterval(() => loadProgress(true), 20000)
+    return () => clearInterval(interval)
+  }, [])
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'completed':
-        return 'bg-green-600'
-      case 'not-completed':
-        return 'bg-red-600'
-      case 'pending':
-        return 'bg-yellow-600'
-      default:
-        return 'bg-gray-600'
-    }
-  }
-
-  const getStatusEmoji = (status) => {
-    switch (status) {
-      case 'completed':
-        return '✅'
-      case 'not-completed':
-        return '❌'
-      case 'pending':
-        return '⏳'
-      default:
-        return '❓'
-    }
-  }
-
-  if (loading && progress.length === 0) {
-    return (
-      <div className="bg-gray-800 rounded-lg p-6">
-        <h2 className="text-2xl font-bold text-white mb-4">📊 Task Progress</h2>
-        <p className="text-gray-400">Loading...</p>
-      </div>
-    )
+  const statusLabel = (status) => {
+    if (status === 'completed') return 'Done'
+    if (status === 'not-completed') return 'Not done'
+    return 'Pending'
   }
 
   return (
-    <div className="bg-gray-800 rounded-lg p-6">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-bold text-white">📊 Task Progress</h2>
+    <div className="border border-line bg-raised p-5 shadow-xs">
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-semibold tracking-wide text-ink uppercase">
+            Accountability &amp; Friend Progress
+          </h3>
+          <p className="text-xs text-muted">See who completed shared challenges</p>
+        </div>
         <button
-          onClick={loadProgress}
-          className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm font-semibold transition"
+          type="button"
+          onClick={() => loadProgress()}
+          className="border border-line bg-paper px-2.5 py-1 text-xs font-medium text-ink hover:border-ink transition-colors"
         >
-          🔄 Refresh
+          {loading ? 'Refreshing…' : 'Refresh'}
         </button>
       </div>
 
-      {error && <div className="bg-red-500 text-white p-3 rounded mb-4">{error}</div>}
+      {error && <div className="mb-3 border border-bad/30 bg-bad/10 px-3 py-2 text-xs text-bad">{error}</div>}
 
-      {progress.length > 0 ? (
-        <div className="space-y-6">
-          {progress.map((taskGroup, idx) => (
-            <div key={idx} className="bg-gray-700 rounded-lg p-4">
-              <h3 className="text-lg font-bold text-white mb-3">{taskGroup.title}</h3>
+      {loading && progress.length === 0 ? (
+        <p className="text-sm text-muted">Checking friend progress…</p>
+      ) : progress.length > 0 ? (
+        <div className="space-y-5">
+          {progress.map((taskGroup) => {
+            const completed = taskGroup.receivers.filter((receiver) => receiver.status === 'completed').length
+            const total = taskGroup.receivers.length
+            const percentage = total > 0 ? Math.round((completed / total) * 100) : 0
 
-              <div className="space-y-2">
-                {taskGroup.receivers.map((receiver, ridx) => (
+            return (
+              <div key={taskGroup.title} className="border-t border-line pt-4 first:border-t-0 first:pt-0">
+                <div className="flex items-center justify-between gap-3">
+                  <h4 className="font-medium text-ink">{taskGroup.title}</h4>
+                  <span className="text-xs font-semibold text-muted">
+                    {completed} of {total} completed ({percentage}%)
+                  </span>
+                </div>
+                <div className="mt-2 h-2 w-full overflow-hidden bg-paper-2 rounded-full" aria-hidden="true">
                   <div
-                    key={ridx}
-                    className={`${getStatusColor(
-                      receiver.status
-                    )} p-3 rounded flex justify-between items-center text-white`}
-                  >
-                    <div className="flex-1">
-                      <p className="font-semibold">{receiver.receiverName}</p>
-                      <p className="text-sm opacity-90">@{receiver.receiverUsername}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-2xl">
-                        {getStatusEmoji(receiver.status)}
-                      </p>
-                      <p className="text-xs opacity-90">
-                        {receiver.completedAt
-                          ? new Date(receiver.completedAt).toLocaleDateString()
-                          : ''}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Summary */}
-              <div className="mt-3 pt-3 border-t border-gray-600">
-                {(() => {
-                  const completed = taskGroup.receivers.filter(
-                    (r) => r.status === 'completed'
-                  ).length
-                  const total = taskGroup.receivers.length
-                  const percentage = Math.round((completed / total) * 100)
-
-                  return (
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-300">
-                        {completed} of {total} completed
-                      </span>
-                      <div className="flex-1 mx-3 bg-gray-600 rounded-full h-2">
-                        <div
-                          className="bg-green-500 h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${percentage}%` }}
-                        />
+                    className="h-full bg-good transition-all duration-500 ease-out rounded-full"
+                    style={{ width: `${percentage}%` }}
+                  />
+                </div>
+                <ul className="mt-3 divide-y divide-line/60">
+                  {taskGroup.receivers.map((receiver) => (
+                    <li
+                      key={`${taskGroup.title}-${receiver.receiverId}`}
+                      className="flex items-center justify-between py-2 text-xs"
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-paper-2 font-bold text-ink text-[10px]">
+                          {receiver.receiverName ? receiver.receiverName.charAt(0).toUpperCase() : '?'}
+                        </div>
+                        <span className="font-medium text-ink">{receiver.receiverName}</span>
+                        <span className="text-muted">@{receiver.receiverUsername}</span>
                       </div>
-                      <span className="text-gray-300 font-semibold">{percentage}%</span>
-                    </div>
-                  )
-                })()}
+                      <span
+                        className={`px-2 py-0.5 rounded-xs font-medium ${
+                          receiver.status === 'completed'
+                            ? 'border border-good/30 bg-good/10 text-good'
+                            : 'border border-line bg-paper text-muted'
+                        }`}
+                      >
+                        {statusLabel(receiver.status)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       ) : (
-        <div className="text-center py-8">
-          <p className="text-gray-400 text-lg">📭 No tasks shared yet</p>
-          <p className="text-gray-500 text-sm">Send tasks to friends to start tracking progress</p>
+        <div className="border border-dashed border-line p-6 text-center">
+          <p className="text-sm font-medium text-ink">No accepted shared tasks yet</p>
+          <p className="mt-1 text-xs text-muted">
+            Send a task to your friends. Once they accept, their daily completion will track here live!
+          </p>
         </div>
       )}
     </div>

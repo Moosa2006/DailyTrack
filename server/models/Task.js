@@ -11,8 +11,14 @@ const taskSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    category: {
+      type: String,
+      default: 'General',
+    },
   },
   { timestamps: true }
 )
+
+taskSchema.index({ userId: 1, createdAt: 1 })
 
 export default mongoose.model('Task', taskSchema)

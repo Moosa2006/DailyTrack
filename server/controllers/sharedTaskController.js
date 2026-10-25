@@ -2,39 +2,45 @@ import SharedTask from '../models/SharedTask.js'
 import User from '../models/User.js'
 import Task from '../models/Task.js'
 
-// Send task to one or multiple friends
 export const sendTask = async (req, res) => {
   try {
     const { receiverIds, title } = req.body
     const senderId = req.user.id
+    const trimmedTitle = String(title || '').trim()
 
-    // Validate inputs
-    if (!title || !receiverIds || !Array.isArray(receiverIds) || receiverIds.length === 0) {
-      return res.status(400).json({ message: 'Title and receiver IDs are required' })
+    if (
+      !trimmedTitle ||
+      !receiverIds ||
+      !Array.isArray(receiverIds) ||
+      receiverIds.length === 0
+    ) {
+      return res.status(400).json({ message: 'Title and at least one friend are required' })
     }
 
-    // Get sender with friends list
+    if (trimmedTitle.length > 200) {
+      return res.status(400).json({ message: 'Title must be 200 characters or fewer' })
+    }
+
+    const uniqueReceiverIds = [...new Set(receiverIds.map((id) => String(id)))]
+
     const sender = await User.findById(senderId)
     if (!sender) {
       return res.status(404).json({ message: 'User not found' })
     }
 
-    // Validate all receivers are friends
-    const senderFriendIds = sender.friends.map((f) => f.toString())
-    const invalidReceivers = receiverIds.filter((id) => !senderFriendIds.includes(id.toString()))
+    const senderFriendIds = sender.friends.map((friend) => friend.toString())
+    const invalidReceivers = uniqueReceiverIds.filter((id) => !senderFriendIds.includes(id))
 
     if (invalidReceivers.length > 0) {
-      return res.status(400).json({ message: 'Can only send tasks to friends' })
+      return res.status(400).json({ message: 'You can only send tasks to friends' })
     }
 
-    // Prevent duplicates and create shared tasks
     const createdTasks = []
-    for (const receiverId of receiverIds) {
-      // Check for existing pending task to same receiver with same title
+    for (const receiverId of uniqueReceiverIds) {
       const existing = await SharedTask.findOne({
         senderId,
         receiverId,
-        title,
+        title: trimmedTitle,
         status: 'pending',
       })
 
@@ -42,7 +48,7 @@ export const sendTask = async (req, res) => {
         const sharedTask = new SharedTask({
           senderId,
           receiverId,
-          title,
+          title: trimmedTitle,
         })
         await sharedTask.save()
         createdTasks.push(sharedTask)
@@ -50,19 +56,18 @@ export const sendTask = async (req, res) => {
     }
 
     if (createdTasks.length === 0) {
-      return res.status(400).json({ message: 'Task already sent to selected users' })
+      return res.status(400).json({ message: 'This task was already sent to the selected friends' })
     }
 
     res.status(201).json({
-      message: `Task sent to ${createdTasks.length} friend(s)`,
+      message: `Task sent to ${createdTasks.length} friend${createdTasks.length === 1 ? '' : 's'}`,
       tasks: createdTasks,
     })
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message })
+  } catch {
+    res.status(500).json({ message: 'Server error' })
   }
 }
 
-// Get incoming tasks (pending requests)
 export const getIncomingTasks = async (req, res) => {
   try {
     const userId = req.user.id
@@ -75,12 +80,11 @@ export const getIncomingTasks = async (req, res) => {
       .sort({ createdAt: -1 })
 
     res.json({ tasks })
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message })
+  } catch {
+    res.status(500).json({ message: 'Server error' })
   }
 }
 
-// Get sent tasks (sender's perspective)
 export const getSentTasks = async (req, res) => {
   try {
     const userId = req.user.id
@@ -90,47 +94,41 @@ export const getSentTasks = async (req, res) => {
     })
       .populate('receiverId', 'name username')
       .sort({ createdAt: -1 })
+      .limit(100)
 
     res.json({ tasks })
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message })
+  } catch {
+    res.status(500).json({ message: 'Server error' })
   }
 }
 
-// Respond to task (accept/reject)
 export const respondToTask = async (req, res) => {
   try {
     const { id } = req.params
     const { action } = req.body
     const userId = req.user.id
 
-    // Validate action
     if (!['accepted', 'rejected'].includes(action)) {
       return res.status(400).json({ message: 'Invalid action' })
     }
 
-    // Find shared task
     const sharedTask = await SharedTask.findById(id)
     if (!sharedTask) {
       return res.status(404).json({ message: 'Task not found' })
     }
 
-    // Verify receiver
     if (sharedTask.receiverId.toString() !== userId.toString()) {
       return res.status(403).json({ message: 'Unauthorized' })
     }
 
-    // Prevent double action
     if (sharedTask.status !== 'pending') {
-      return res.status(400).json({ message: 'Already responded to this task' })
+      return res.status(400).json({ message: 'You have already responded to this task' })
     }
 
-    // Update status
     sharedTask.status = action
     if (action === 'accepted') {
       sharedTask.acceptedAt = new Date()
 
-      // Create corresponding task in Task collection
       const task = new Task({
         userId,
         title: sharedTask.title,
@@ -145,12 +143,11 @@ export const respondToTask = async (req, res) => {
       message: `Task ${action}`,
       sharedTask,
     })
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message })
+  } catch {
+    res.status(500).json({ message: 'Server error' })
   }
 }
 
-// Get all shared tasks (for utility/admin views)
 export const getAllSharedTasks = async (req, res) => {
   try {
     const userId = req.user.id
@@ -160,38 +157,38 @@ export const getAllSharedTasks = async (req, res) => {
     })
       .populate('senderId', 'name username')
       .sort({ createdAt: -1 })
+      .limit(100)
 
     const sentTasks = await SharedTask.find({
       senderId: userId,
     })
       .populate('receiverId', 'name username')
       .sort({ createdAt: -1 })
+      .limit(100)
 
     res.json({
       incoming: incomingTasks,
       sent: sentTasks,
     })
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message })
+  } catch {
+    res.status(500).json({ message: 'Server error' })
   }
 }
 
-// Get progress (sender tracking all receivers' completion)
 export const getTaskProgress = async (req, res) => {
   try {
     const userId = req.user.id
 
-    // Get all tasks sent by this user
     const sentTasks = await SharedTask.find({
       senderId: userId,
-      status: 'accepted', // Only show accepted tasks
+      status: 'accepted',
     })
       .populate('receiverId', 'name username')
       .sort({ createdAt: -1 })
 
-    // Group by title to show overall progress
     const progressByTitle = {}
     sentTasks.forEach((task) => {
+      if (!task.receiverId) return
       if (!progressByTitle[task.title]) {
         progressByTitle[task.title] = {
           title: task.title,
@@ -210,7 +207,7 @@ export const getTaskProgress = async (req, res) => {
     res.json({
       progress: Object.values(progressByTitle),
     })
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message })
+  } catch {
+    res.status(500).json({ message: 'Server error' })
   }
 }

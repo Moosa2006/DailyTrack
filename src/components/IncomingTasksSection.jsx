@@ -1,14 +1,16 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { getIncomingTasks, respondToSharedTask } from '../services/api'
+import { useToast } from './Toast'
 
 export default function IncomingTasksSection({ refreshTrigger, onTaskAccepted }) {
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(false)
   const [respondingTo, setRespondingTo] = useState(null)
-  const [error, setError] = useState('')
+  const toast = useToast()
 
   useEffect(() => {
     loadIncomingTasks()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshTrigger])
 
   const loadIncomingTasks = async () => {
@@ -16,9 +18,8 @@ export default function IncomingTasksSection({ refreshTrigger, onTaskAccepted })
       setLoading(true)
       const response = await getIncomingTasks()
       setTasks(response.tasks || [])
-    } catch (err) {
-      setError('Failed to load incoming tasks')
-      console.error(err)
+    } catch {
+      toast('Failed to load incoming tasks', 'error')
     } finally {
       setLoading(false)
     }
@@ -27,94 +28,80 @@ export default function IncomingTasksSection({ refreshTrigger, onTaskAccepted })
   const handleRespond = async (taskId, action) => {
     try {
       setRespondingTo(taskId)
-      setError('')
-      
-      const response = await respondToSharedTask(taskId, action)
-
-      if (response && response.sharedTask) {
-        // Task responded to successfully - remove from incoming list
-        setTasks(tasks.filter(t => t._id !== taskId))
-
-        // Trigger callback to refresh main task list if accepted
-        if (action === 'accepted' && onTaskAccepted) {
-          onTaskAccepted()
-        }
-      } else if (response && response.message && response.message.includes('Already responded')) {
-        // Task already responded to
-        setError('You have already responded to this task')
-        // Reload to refresh UI
-        loadIncomingTasks()
+      await respondToSharedTask(taskId, action)
+      setTasks((current) => current.filter((task) => task._id !== taskId))
+      if (action === 'accepted') {
+        onTaskAccepted?.()
+        toast('Task added to your habits', 'success')
       } else {
-        setError(response?.message || `Failed to ${action} task`)
+        toast('Request declined')
       }
     } catch (err) {
-      setError(`Failed to ${action} task. Please try again.`)
-      console.error(err)
+      toast(err.message || `Failed to ${action} task`, 'error')
+      loadIncomingTasks()
     } finally {
       setRespondingTo(null)
     }
   }
 
-  if (loading) {
-    return <div className="text-gray-400">Loading incoming tasks...</div>
-  }
-
   return (
-    <div className="bg-gray-800 p-6 rounded-lg mb-8">
-      <h2 className="text-2xl font-bold mb-4 text-white">
-        📨 Incoming Task Requests
+    <div className="border border-line bg-raised p-5 shadow-xs">
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="text-sm font-semibold tracking-wide text-ink uppercase">
+          Incoming challenges &amp; habits
+        </h3>
         {tasks.length > 0 && (
-          <span className="ml-2 bg-green-600 text-white text-sm px-2 py-1 rounded">
-            {tasks.length}
+          <span className="border border-accent/30 bg-accent/10 px-2 py-0.5 text-xs font-semibold text-accent">
+            {tasks.length} waiting
           </span>
         )}
-      </h2>
+      </div>
 
-      {error && (
-        <div className="bg-red-500 text-white p-3 rounded mb-4">{error}</div>
-      )}
-
-      {tasks.length === 0 ? (
-        <p className="text-gray-400 text-center py-8">
-          No pending task requests. You're all caught up! ✨
-        </p>
+      {loading ? (
+        <p className="text-sm text-muted">Loading incoming tasks…</p>
+      ) : tasks.length === 0 ? (
+        <div className="border border-dashed border-line p-6 text-center">
+          <p className="text-sm font-medium text-ink">No incoming challenges right now</p>
+          <p className="mt-1 text-xs text-muted">
+            When friends send you a habit or accountability challenge, it will appear here.
+          </p>
+        </div>
       ) : (
-        <div className="space-y-3">
-          {tasks.map(task => (
-            <div
-              key={task._id}
-              className="bg-gray-700 p-4 rounded-lg flex items-start gap-4 hover:bg-gray-600 transition"
-            >
-              <div className="flex-1 min-w-0">
-                <p className="text-white font-semibold wrap-break-word">{task.title}</p>
-                <p className="text-gray-400 text-sm mt-1">
-                  From: {task.senderId?.name || 'Unknown user'}{' '}
-                  <span className="text-gray-500">({task.senderId?.email})</span>
-                </p>
-                <p className="text-gray-500 text-xs mt-2">
-                  {new Date(task.createdAt).toLocaleDateString()}
-                </p>
+        <ul className="divide-y divide-line">
+          {tasks.map((task) => (
+            <li key={task._id} className="flex flex-wrap items-center justify-between gap-4 py-3.5">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-paper-2 text-sm font-bold text-ink">
+                  {task.senderId?.name ? task.senderId.name.charAt(0).toUpperCase() : '?'}
+                </div>
+                <div className="min-w-0">
+                  <p className="font-medium text-ink wrap-break-word">{task.title}</p>
+                  <p className="text-xs text-muted">
+                    Sent by <span className="font-medium text-ink">{task.senderId?.name || 'Friend'}</span> (@{task.senderId?.username})
+                  </p>
+                </div>
               </div>
-
-              <div className="flex gap-2 shrink-0">
+              <div className="flex items-center gap-2 shrink-0">
                 <button
+                  type="button"
                   onClick={() => handleRespond(task._id, 'accepted')}
                   disabled={respondingTo === task._id}
-                  className="bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white font-bold py-2 px-4 rounded transition text-sm whitespace-nowrap"
+                  className="bg-accent px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-accent-hover disabled:opacity-60"
                 >
-                  {respondingTo === task._id ? '...' : 'Accept'}
+                  {respondingTo === task._id ? 'Accepting…' : 'Accept & Track'}
                 </button>
                 <button
+                  type="button"
                   onClick={() => handleRespond(task._id, 'rejected')}
                   disabled={respondingTo === task._id}
-                  className="bg-red-600 hover:bg-red-700 disabled:bg-gray-600 text-white font-bold py-2 px-4 rounded transition text-sm whitespace-nowrap"
+                  className="border border-line bg-raised px-3 py-1.5 text-xs text-muted transition-colors hover:border-ink hover:text-ink disabled:opacity-60"
                 >
-                  {respondingTo === task._id ? '...' : 'Reject'}
+                  Decline
                 </button>
               </div>
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </div>
   )

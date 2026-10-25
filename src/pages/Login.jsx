@@ -5,75 +5,113 @@ import { login } from '../services/api'
 export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
+  const handleSubmit = async (event) => {
+    event.preventDefault()
     setError('')
     setLoading(true)
 
     try {
       const response = await login(email, password)
-      
-      if (response.token) {
-        localStorage.setItem('token', response.token)
-        localStorage.setItem('user', JSON.stringify(response.user))
-        navigate('/dashboard')
-      } else {
-        setError(response.message || 'Login failed')
-      }
+      localStorage.setItem('token', response.token)
+      localStorage.setItem('user', JSON.stringify(response.user))
+      navigate('/dashboard')
     } catch (err) {
-      setError('Login failed. Please try again.')
+      setError(err.message || 'Login failed. Please check your credentials.')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900 px-4 py-8">
-      <div className="bg-gray-800 px-6 py-8 md:p-8 rounded-lg shadow-lg w-full max-w-md">
-        <h1 className="text-3xl font-bold text-white mb-6 text-center">Login</h1>
-        
-        {error && <div className="bg-red-500 text-white p-3 rounded mb-4 text-sm md:text-base">{error}</div>}
-        
-        <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-paper px-4 py-12 selection:bg-accent/20">
+      <main id="main" className="w-full max-w-md border border-line bg-raised p-8 shadow-xs sm:rounded-sm">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="flex h-7 w-7 items-center justify-center rounded-xs bg-ink text-paper font-display text-xs font-bold">
+            DT
+          </div>
+          <span className="text-xs font-semibold tracking-wider text-accent uppercase">
+            DailyTrack
+          </span>
+        </div>
+
+        <h1 className="font-display text-3xl font-bold text-ink">Sign in</h1>
+        <p className="mt-1.5 text-xs text-muted">
+          Pick up today&apos;s checklist and keep your habit streak unbroken.
+        </p>
+
+        {error && (
+          <div
+            className="mt-5 border border-bad/30 bg-bad/10 px-3.5 py-2.5 text-xs font-medium text-bad"
+            role="alert"
+          >
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div>
-            <label className="block text-gray-300 mb-2 text-sm md:text-base">Email</label>
+            <label htmlFor="email" className="mb-1 block text-xs font-semibold text-ink uppercase tracking-wider">
+              Email Address
+            </label>
             <input
+              id="email"
               type="email"
+              autoComplete="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-2 bg-gray-700 text-white rounded focus:outline-none focus:ring-2 focus:ring-green-500 text-sm md:text-base"
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="alex@example.com"
+              className="w-full border border-line bg-paper px-3 py-2 text-sm text-ink placeholder:text-muted/50 focus:border-accent"
               required
             />
           </div>
-          
+
           <div>
-            <label className="block text-gray-300 mb-2 text-sm md:text-base">Password</label>
+            <div className="flex items-center justify-between mb-1">
+              <label htmlFor="password" className="block text-xs font-semibold text-ink uppercase tracking-wider">
+                Password
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="text-xs text-muted hover:text-ink transition-colors"
+              >
+                {showPassword ? 'Hide' : 'Show'}
+              </button>
+            </div>
             <input
-              type="password"
+              id="password"
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="current-password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2 bg-gray-700 text-white rounded focus:outline-none focus:ring-2 focus:ring-green-500 text-sm md:text-base"
+              onChange={(event) => setPassword(event.target.value)}
+              className="w-full border border-line bg-paper px-3 py-2 text-sm text-ink focus:border-accent"
               required
             />
           </div>
-          
+
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white font-bold py-2 px-4 rounded transition text-sm md:text-base"
+            className="w-full bg-accent px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition-colors hover:bg-accent-hover disabled:opacity-60"
           >
-            {loading ? 'Logging in...' : 'Login'}
+            {loading ? 'Signing in…' : 'Sign In'}
           </button>
         </form>
-        
-        <p className="text-gray-400 mt-4 text-center text-sm md:text-base">
-          Don't have an account? <Link to="/signup" className="text-green-400 hover:underline">Sign up</Link>
-        </p>
-      </div>
+
+        <div className="mt-6 border-t border-line pt-4 text-center">
+          <p className="text-xs text-muted">
+            Don&apos;t have an account yet?{' '}
+            <Link to="/signup" className="font-semibold text-accent underline-offset-2 hover:underline">
+              Create one now
+            </Link>
+          </p>
+        </div>
+      </main>
     </div>
   )
 }
