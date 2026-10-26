@@ -179,7 +179,7 @@ export default function Home() {
                   <ul className="space-y-2 text-xs text-ink">
                     <li className="flex items-start gap-2">
                       <span className="text-accent font-bold mt-0.5">•</span>
-                      <span><strong>70% Daily Goal Rule:</strong> Achieve $\ge 70\%$ completion to keep your streak burning without all-or-nothing burnout.</span>
+                      <span><strong>70% Daily Goal Rule:</strong> Achieve ≥ 70% completion to keep your streak burning without all-or-nothing burnout.</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <span className="text-accent font-bold mt-0.5">•</span>
@@ -499,7 +499,7 @@ export default function Home() {
                   </tr>
                   <tr>
                     <td className="p-3.5 font-semibold text-ink">Streak Protection Rule</td>
-                    <td className="p-3.5 text-good font-semibold">$\ge 70\%$ maintains momentum</td>
+                    <td className="p-3.5 text-good font-semibold">≥ 70% maintains momentum</td>
                     <td className="p-3.5 text-bad">1 missed item resets streak to 0</td>
                   </tr>
                   <tr>
