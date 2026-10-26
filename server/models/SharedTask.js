@@ -42,4 +42,9 @@ const sharedTaskSchema = new mongoose.Schema(
   { timestamps: true }
 )
 
+sharedTaskSchema.index({ receiverId: 1, status: 1 })
+sharedTaskSchema.index({ senderId: 1, status: 1 })
+sharedTaskSchema.index({ taskId: 1, receiverId: 1, status: 1 })
+
 export default mongoose.model('SharedTask', sharedTaskSchema)
+

@@ -40,5 +40,6 @@ const dailyLogSchema = new mongoose.Schema(
 )
 
 dailyLogSchema.index({ userId: 1, date: 1 }, { unique: true })
+dailyLogSchema.index({ userId: 1, completionPercentage: 1, date: 1 })
 
 export default mongoose.model('DailyLog', dailyLogSchema)

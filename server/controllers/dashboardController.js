@@ -19,7 +19,10 @@ export const getDashboard = async (req, res) => {
     const logs = await DailyLog.find({
       userId,
       date: { $gte: thirtyDaysAgo, $lte: today },
-    }).sort({ date: 1 })
+    })
+      .select('date completionPercentage')
+      .sort({ date: 1 })
+      .lean()
 
     const byDate = new Map(
       logs.map((log) => [formatDateOnly(log.date), log.completionPercentage])
@@ -61,6 +64,7 @@ export const getDashboard = async (req, res) => {
     })
       .select('date')
       .sort({ date: 1 })
+      .lean()
 
     let longestStreak = 0
     let tempStreak = 0

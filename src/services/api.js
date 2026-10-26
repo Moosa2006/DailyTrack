@@ -120,3 +120,33 @@ export const getCurrentUserProfile = () =>
 
 export const getUserProfile = (username) =>
   apiCall(`/users/profile/${username}`, 'GET')
+
+// Daily Tasks API
+export const createDailyTask = (data) =>
+  apiCall('/daily-tasks', 'POST', data)
+
+export const getDailyTasks = (date) =>
+  apiCall(date ? `/daily-tasks?date=${encodeURIComponent(date)}` : '/daily-tasks', 'GET')
+
+export const getDailyTaskSummary = (date) =>
+  apiCall(date ? `/daily-tasks/summary?date=${encodeURIComponent(date)}` : '/daily-tasks/summary', 'GET')
+
+export const getDailyTaskHistory = (startDate, endDate) =>
+  apiCall(`/daily-tasks/history?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`, 'GET')
+
+export const updateDailyTask = (id, data) =>
+  apiCall(`/daily-tasks/${id}`, 'PUT', data)
+
+export const toggleDailyTask = (id) =>
+  apiCall(`/daily-tasks/${id}/toggle`, 'PATCH')
+
+export const deleteDailyTask = (id) =>
+  apiCall(`/daily-tasks/${id}`, 'DELETE')
+
+// Daily Notes API
+export const getDailyNote = (date) =>
+  apiCall(`/daily-notes/${encodeURIComponent(date)}`, 'GET')
+
+export const saveDailyNote = (date, content) =>
+  apiCall(`/daily-notes/${encodeURIComponent(date)}`, 'PUT', { content })
+

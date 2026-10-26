@@ -12,6 +12,8 @@ import dashboardRoutes from './routes/dashboardRoutes.js'
 import sharedTaskRoutes from './routes/sharedTaskRoutes.js'
 import friendRoutes from './routes/friendRoutes.js'
 import userRoutes from './routes/userRoutes.js'
+import dailyTaskRoutes from './routes/dailyTaskRoutes.js'
+import dailyNoteRoutes from './routes/dailyNoteRoutes.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -92,6 +94,8 @@ const createApp = () => {
   app.use('/api/shared', sharedTaskRoutes)
   app.use('/api/friends', friendRoutes)
   app.use('/api/users', userRoutes)
+  app.use('/api/daily-tasks', dailyTaskRoutes)
+  app.use('/api/daily-notes', dailyNoteRoutes)
 
   app.use((req, res) => {
     res.status(404).json({ message: 'Not found' })

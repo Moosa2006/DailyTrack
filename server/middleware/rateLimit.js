@@ -1,12 +1,13 @@
 const hits = new Map()
 
 export function rateLimit({ windowMs = 15 * 60 * 1000, max = 20 } = {}) {
+  const effectiveMax = process.env.NODE_ENV === 'production' ? max : 500
   return (req, res, next) => {
     const key = `${req.ip}:${req.baseUrl}${req.path}`
     const now = Date.now()
     const recent = (hits.get(key) || []).filter((time) => now - time < windowMs)
 
-    if (recent.length >= max) {
+    if (recent.length >= effectiveMax) {
       return res.status(429).json({ message: 'Too many attempts. Please try again later.' })
     }
 

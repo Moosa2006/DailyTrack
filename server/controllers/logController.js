@@ -30,17 +30,24 @@ export const saveLog = async (req, res) => {
         completed: Boolean(task.completed),
       }))
 
-    for (const task of sanitizedTasks) {
-      const sharedTask = await SharedTask.findOne({
-        taskId: task.taskId,
+    if (sanitizedTasks.length > 0) {
+      const taskIds = sanitizedTasks.map((t) => t.taskId)
+      const matchingShared = await SharedTask.find({
+        taskId: { $in: taskIds },
         receiverId: userId,
         status: 'accepted',
       })
 
-      if (sharedTask) {
-        sharedTask.completed = task.completed
-        sharedTask.completedAt = task.completed ? new Date() : null
-        await sharedTask.save()
+      if (matchingShared.length > 0) {
+        const completedMap = new Map(sanitizedTasks.map((t) => [String(t.taskId), t.completed]))
+        await Promise.all(
+          matchingShared.map((st) => {
+            const isCompleted = completedMap.get(String(st.taskId)) ?? st.completed
+            st.completed = isCompleted
+            st.completedAt = isCompleted ? new Date() : null
+            return st.save()
+          })
+        )
       }
     }
 

@@ -23,5 +23,6 @@ const friendRequestSchema = new mongoose.Schema(
 
 // Index to prevent duplicate pending requests
 friendRequestSchema.index({ senderId: 1, receiverId: 1, status: 1 })
+friendRequestSchema.index({ receiverId: 1, status: 1 })
 
 export default mongoose.model('FriendRequest', friendRequestSchema)
